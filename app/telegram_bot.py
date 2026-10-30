@@ -589,6 +589,12 @@ async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def pedido_expirado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop("pedido", None)
+    if update.effective_message:
+        await update.effective_message.reply_text("Tu pedido quedó inactivo y lo descartamos. Para empezar de nuevo tocá ‘Hacer un pedido’ o escribí /pedido.", reply_markup=teclado_inicio_pedido())
+
+
 def main():
     load_dotenv()
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -608,8 +614,14 @@ def main():
             ALIAS_TRANSFERENCIA: [MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_alias_transferencia)],
             COMPROBANTE: [MessageHandler(filters.PHOTO | filters.Document.ALL | (filters.TEXT & ~filters.COMMAND), recibir_comprobante)],
             CONFIRMAR: [CallbackQueryHandler(confirmar_pedido, pattern=r"^(confirmar|modificar|cancelar)$")],
+            ConversationHandler.TIMEOUT: [MessageHandler(filters.ALL, pedido_expirado), CallbackQueryHandler(pedido_expirado)],
         },
-        fallbacks=[CommandHandler("cancelar", cancelar), CommandHandler("pedido", iniciar_pedido)],
+        conversation_timeout=1800,
+        fallbacks=[
+            CommandHandler("cancelar", cancelar),
+            CommandHandler("pedido", iniciar_pedido),
+            CallbackQueryHandler(iniciar_pedido, pattern=r"^iniciar_pedido$"),
+        ],
     )
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
